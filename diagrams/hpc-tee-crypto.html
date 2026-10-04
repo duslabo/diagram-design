@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HPC confidential crypto · Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;   /* white-smoke */
+      --color-ink:     #2d3142;   /* jet-black */
+      --color-muted:   #4f5d75;   /* blue-slate */
+      --color-accent:  #eb6c36;   /* atomic-tangerine */
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    /* The SVG holds its readable width (min-width == the viewBox width, so the
+       type ramp is never silently scaled down). This wrapper lets a narrow
+       screen scroll the diagram instead of the whole page. */
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 1000px; display: block; }
+    /* Paper has no scrollbar, so the local scroller would clip instead of
+       scroll. Let the diagram scale down to the sheet: smaller but whole
+       beats sharp but cut off. Must come after the svg rule above - a media
+       query adds no specificity, so a later plain rule would win. */
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Secure paved road</p>
+    <h1>How an HPC guest runs crypto inside a TEE</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1000 592" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hpc-tee-crypto-title hpc-tee-crypto-desc">
+        <title id="hpc-tee-crypto-title">HPC guest crypto inside a TEE</title>
+        <desc id="hpc-tee-crypto-desc">Architecture showing an HPC guest job opening an attested TLS channel through an untrusted host into a TEE gateway and crypto engine, whose keys are released by a KMS only after an attestation verifier accepts the enclave quote, while direct host memory reads are blocked at the trust boundary.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment the <pattern> and the second <rect> below if you want the dotted paper look. -->
+          <!--
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <!-- <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/> -->
+
+
+        <!-- Zones: tenant, untrusted host, TEE (drawn first) -->
+        <rect x="40" y="152" width="176" height="256" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="102" y="156" width="52" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="128" y="165" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">TENANT</text>
+        <rect x="256" y="152" width="184" height="256" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="298" y="156" width="100" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="348" y="165" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">HOST · UNTRUSTED</text>
+        <rect x="480" y="152" width="480" height="256" rx="8" fill="rgba(235,108,54,0.02)" stroke="rgba(235,108,54,0.50)" stroke-width="1" stroke-dasharray="4,4"/>
+        <rect x="652" y="156" width="136" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="720" y="165" fill="rgba(235,108,54,0.80)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">TEE · CONFIDENTIAL VM</text>
+
+        <!-- Arrows (behind nodes) -->
+        <line x1="200" y1="204" x2="504" y2="204" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <line x1="504" y1="228" x2="200" y2="228" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <path d="M 128,248 V 344 Q 128,352 136,352 H 272" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="400" y1="352" x2="466" y2="352" stroke="#2d3142" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="470" y1="342" x2="470" y2="362" stroke="#2d3142" stroke-width="2"/>
+        <line x1="648" y1="216" x2="704" y2="216" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="784" y1="320" x2="784" y2="248" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="576" y1="184" x2="576" y2="104" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="648" y1="72" x2="816" y2="72" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 880,104 V 344 Q 880,352 872,352 H 848" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="576" y1="248" x2="576" y2="440" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+        <!-- Arrow labels -->
+        <rect x="304" y="184" width="88" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="348" y="193" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ATTESTED TLS</text>
+        <rect x="324" y="236" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="348" y="245" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">RESULT</text>
+        <rect x="136" y="290" width="68" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="170" y="299" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SUBMIT JOB</text>
+        <rect x="408" y="332" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="436" y="341" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MEM READ</text>
+        <rect x="652" y="196" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="676" y="205" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OP REQ</text>
+        <rect x="792" y="278" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="816" y="287" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">UNSEAL</text>
+        <rect x="584" y="122" width="40" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="604" y="131" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">QUOTE</text>
+        <rect x="700" y="52" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="732" y="61" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">VERIFIED</text>
+        <rect x="888" y="272" width="68" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="922" y="281" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">RELEASE KEY</text>
+        <rect x="584" y="338" width="68" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="618" y="347" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SIGNED LOG</text>
+
+        <!-- Editorial callout -->
+        <text x="348" y="284" fill="#4f5d75" font-size="13" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="middle">host sees only ciphertext</text>
+        <!-- Node: Guest job (tenant) -->
+        <rect x="56" y="184" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="56" y="184" width="144" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+        <rect x="64" y="192" width="28" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+        <text x="78" y="201" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">JOB</text>
+        <text x="128" y="220" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Guest Job</text>
+        <text x="128" y="236" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">MPI rank · client SDK</text>
+        <!-- Node: Host OS / hypervisor (untrusted) -->
+        <rect x="272" y="320" width="128" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="272" y="320" width="128" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="280" y="328" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="296" y="337" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOST</text>
+        <text x="336" y="356" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Host OS</text>
+        <text x="336" y="372" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">KVM · Slurm</text>
+        <!-- Node: Enclave gateway (privileged gate) -->
+        <rect x="504" y="184" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="504" y="184" width="144" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="512" y="192" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="528" y="201" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="576" y="220" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Enclave Gateway</text>
+        <text x="576" y="236" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">verify · mTLS end</text>
+        <!-- Node: Crypto engine (focal) -->
+        <rect x="704" y="184" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="704" y="184" width="160" height="64" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+        <rect x="712" y="192" width="28" height="12" rx="2" fill="transparent" stroke="rgba(235,108,54,0.50)" stroke-width="0.8"/>
+        <text x="726" y="201" fill="#eb6c36" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TEE</text>
+        <text x="784" y="220" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Crypto Engine</text>
+        <text x="784" y="236" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">AES-GCM · ECDSA · ML-KEM</text>
+        <!-- Node: Sealed key store -->
+        <rect x="720" y="320" width="128" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="720" y="320" width="128" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="728" y="328" width="32" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="744" y="337" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KEYS</text>
+        <text x="784" y="356" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Sealed Keys</text>
+        <text x="784" y="372" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">bound to measurement</text>
+        <!-- Node: Attestation verifier -->
+        <rect x="504" y="40" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="504" y="40" width="144" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="512" y="48" width="40" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="532" y="57" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ATTEST</text>
+        <text x="576" y="76" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Verifier</text>
+        <text x="576" y="92" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">quote → claims</text>
+        <!-- Node: KMS / HSM -->
+        <rect x="816" y="40" width="128" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="816" y="40" width="128" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="824" y="48" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="838" y="57" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KMS</text>
+        <text x="880" y="76" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">KMS / HSM</text>
+        <text x="880" y="92" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">key release policy</text>
+        <!-- Node: Audit log -->
+        <rect x="504" y="440" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="504" y="440" width="144" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="512" y="448" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="526" y="457" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">LOG</text>
+        <text x="576" y="476" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Audit Log</text>
+        <text x="576" y="492" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">append-only</text>
+
+        <!-- Legend strip -->
+        <line x1="40" y1="536" x2="960" y2="536" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="552" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+        <rect x="40" y="564" width="14" height="10" rx="2" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+        <text x="60" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Crypto engine</text>
+        <rect x="140" y="564" width="14" height="10" rx="2" fill="rgba(235,108,54,0.02)" stroke="rgba(235,108,54,0.50)" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="160" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Trust boundary</text>
+        <rect x="248" y="564" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="268" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Store</text>
+        <rect x="312" y="564" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="332" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Untrusted / external</text>
+        <line x1="436" y1="569" x2="464" y2="569" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="472" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Attested channel</text>
+        <line x1="564" y1="569" x2="592" y2="569" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="600" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Attestation / key API</text>
+        <line x1="704" y1="569" x2="732" y2="569" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="740" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Return / async</text>
+        <line x1="828" y1="569" x2="850" y2="569" stroke="#2d3142" stroke-width="1.2" stroke-dasharray="2,3"/><line x1="854" y1="562" x2="854" y2="576" stroke="#2d3142" stroke-width="2"/>
+        <text x="864" y="572" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Blocked path</text>
+
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
